@@ -25,50 +25,54 @@ def get_logger(name):
     return log
 
 
-def class_wise_pooling(x, m):
+def class_wise_pooling(x, m, scope='class_pool'):
     """
     Operation for class-wise pooling.
 
     :param x: Tensor, with shape(batch_size, h, w, m*c)
     :param m: int, parameter M in the paper
+    :param scope: str, parameter scope
     :return:
         op: Tensor, with shape(batch_size, h, w, c)
     """
-    _, _, _, n = x.get_shape().as_list()
-    n_classes = n // m
-    ops = []
-    for i in range(n_classes):
-        class_avg_op = tf.reduce_mean(x[:, :, :, m*i:m*(i+1)], axis=3, keep_dims=True)
-        ops.append(class_avg_op)
-    final_op = tf.concat(ops, axis=3)
-    return final_op
+    with tf.variable_scope(scope):
+        _, _, _, n = x.get_shape().as_list()
+        n_classes = n // m
+        ops = []
+        for i in range(n_classes):
+            class_avg_op = tf.reduce_mean(x[:, :, :, m*i:m*(i+1)], axis=3, keep_dims=True)
+            ops.append(class_avg_op)
+        final_op = tf.concat(ops, axis=3)
+        return final_op
 
 
-def spatial_pooling(x, k, alpha=None):
+def spatial_pooling(x, k, alpha=None, scope='spatial_pool'):
     """
     Operation for spatial pooling.
 
     :param x: Tensor, with shape(batch_size, h, w, c)
     :param k: int,
     :param alpha: float, mixing coefficient for kmax and kmin. If none, ignore kmin.
+    :param scope: str, parameter scope
     :return:
         op: Tensor, with shape(batch_size, c)
     """
-    batch_size, _, _, n_classes = x.get_shape().as_list()
-    x_flat = tf.reshape(x, shape=(batch_size, -1, n_classes))
-    x_transp = tf.transpose(x_flat, perm=(0, 2, 1))
-    k_maxs, _ = tf.nn.top_k(x_transp, k, sorted=False)
-    k_maxs_mean = tf.reduce_mean(k_maxs, axis=2)
-    result = k_maxs_mean
-    if alpha:
-        # top -x_flat to retrieve the k smallest values
-        k_mins, _ = tf.nn.top_k(-x_transp, k, sorted=False)
-        # flip back
-        k_mins = -k_mins
-        k_mins_mean = tf.reduce_mean(k_mins, axis=2)
-        alpha = tf.constant(alpha, name='alpha', dtype=tf.float32)
-        result += alpha * k_mins_mean
-    return result
+    with tf.variable_scope(scope):
+        batch_size, _, _, n_classes = x.get_shape().as_list()
+        x_flat = tf.reshape(x, shape=(batch_size, -1, n_classes))
+        x_transp = tf.transpose(x_flat, perm=(0, 2, 1))
+        k_maxs, _ = tf.nn.top_k(x_transp, k, sorted=False)
+        k_maxs_mean = tf.reduce_mean(k_maxs, axis=2)
+        result = k_maxs_mean
+        if alpha:
+            # top -x_flat to retrieve the k smallest values
+            k_mins, _ = tf.nn.top_k(-x_transp, k, sorted=False)
+            # flip back
+            k_mins = -k_mins
+            k_mins_mean = tf.reduce_mean(k_mins, axis=2)
+            alpha = tf.constant(alpha, name='alpha', dtype=tf.float32)
+            result += alpha * k_mins_mean
+        return result
 
 
 class Timer:

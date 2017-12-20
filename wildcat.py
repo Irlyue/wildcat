@@ -23,6 +23,8 @@ class WildCat:
         self.alpha = alpha
         self.learning_rate = learning_rate
         self.k = k
+        # store a snap version of __dict__ for string representation
+        self.params = self.__dict__.copy()
         self.build_graph()
 
     def train_one_step(self, verbose=True):
@@ -56,8 +58,8 @@ class WildCat:
                                 num_outputs=self.n_maps_per_class*self.n_classes,
                                 kernel_size=self.transfer_conv_size,
                                 scope='multi_map_transfer')
-        class_pool = utils.class_wise_pooling(multi_map, self.n_maps_per_class)
-        spatial_pool = utils.spatial_pooling(class_pool, self.k, alpha=self.alpha)
+        class_pool = utils.class_wise_pooling(multi_map, self.n_maps_per_class, scope='class_pool')
+        spatial_pool = utils.spatial_pooling(class_pool, self.k, alpha=self.alpha, scope='spatial_pool')
         self.logits = spatial_pool
         self.probs = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.labels, name='probs')
         self.loss = tf.reduce_mean(self.probs, name='data_loss')
@@ -76,9 +78,11 @@ class WildCat:
         pass
 
     def __repr__(self):
-        ret = ''
+        ret = '\n'
         for i, (key, value) in enumerate(self.endpoints.items()):
-            ret += '{} {}{}\n'.format(i, key, value.shape)
+            ret += '{:>2} {:<50}{}\n'.format(i, key, value.shape)
+        for key, value in self.params.items():
+            ret += '{:<20}= {}\n'.format(key, value)
         return ret
 
 
