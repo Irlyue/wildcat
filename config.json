@@ -1,6 +1,7 @@
 {
   "log_dir": "all_logs/",
   "train_dir": "train/",
+  "slim_path": "~/models/models/research/slim",
   "weight_decay": 1e-3,
   "n_feature_maps_per_class": 5,
   "k": 1,
