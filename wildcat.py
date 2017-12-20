@@ -63,18 +63,30 @@ class WildCat:
         self.loss = tf.reduce_mean(self.probs, name='data_loss')
         solver = tf.train.AdamOptimizer(self.learning_rate)
         self.train_op = solver.minimize(self.loss, global_step=global_step)
+        # record the intermediate nodes
+        endpoints['multi_map'] = multi_map
+        endpoints['class_pool'] = class_pool
+        endpoints['spatial_pool'] = spatial_pool
+        endpoints['logits'] = self.logits
+        endpoints['probs'] = self.probs
+        self.endpoints = endpoints
         logger.info('Done graph building!')
 
     def load_pretrained_resnet(self):
         pass
 
     def __repr__(self):
-        pass
+        ret = ''
+        for i, (key, value) in enumerate(self.endpoints.items()):
+            ret += '{} {}{}\n'.format(i, key, value.shape)
+        return ret
 
 
 if __name__ == '__main__':
-    with tf.Graph().as_default():
+    with tf.Graph().as_default() as g:
         n_classes = 10
         images = tf.placeholder(tf.float32, shape=(32, 64, 64, 3))
         labels = tf.placeholder(tf.float32, shape=(32, n_classes))
         model = WildCat(images, labels, n_classes=n_classes)
+        writer = tf.summary.FileWriter('/tmp/wildcat', graph=g)
+        logger.info(model)
