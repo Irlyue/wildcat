@@ -39,7 +39,7 @@ class WildCat:
         logger.info('Training from scratch....')
         logger.info(self)
         logger.info('config=\n' + json.dumps(config, indent=2))
-        n_steps_per_epoch = int(config['n_examples_for_train'] // config['batch_size']) + 1
+        n_steps_per_epoch = int(np.ceil(config['n_examples_for_train'] // config['batch_size']))
         n_steps_for_train = config['n_epochs_for_train'] * n_steps_per_epoch
 
         # since we're training from scratch,
@@ -101,7 +101,8 @@ class WildCat:
         multi_map = slim.conv2d(conv5,
                                 num_outputs=self.n_maps_per_class*self.n_classes,
                                 kernel_size=self.transfer_conv_size,
-                                scope='multi_map_transfer')
+                                scope='multi_map_transfer',
+                                activation_fn=None)
         class_pool = utils.class_wise_pooling(multi_map, self.n_maps_per_class, scope='class_pool')
         spatial_pool = utils.spatial_pooling(class_pool, self.k, alpha=self.alpha, scope='spatial_pool')
         self.logits = spatial_pool
