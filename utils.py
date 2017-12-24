@@ -1,5 +1,6 @@
 import time
 import json
+import tarfile
 import logging
 import importlib
 import logging.config
@@ -91,6 +92,11 @@ def spatial_pooling(x, k, alpha=None, scope='spatial_pool'):
             alpha = tf.constant(alpha, name='alpha', dtype=tf.float32)
             result += alpha * k_mins_mean
         return result
+
+
+def extract_to(src, dst):
+    with tarfile.open(src) as f:
+        f.extractall(dst)
 
 
 class Timer:
