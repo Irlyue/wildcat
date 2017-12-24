@@ -2,10 +2,17 @@
   "log_dir": "all_logs/",
   "train_dir": "train/",
   "slim_path": "~/models/models/research/slim",
+  "ckpt_path": "/tmp/resnet_v1_50.ckpt",
+  "ckpt_tar_path": "~/models/weights/resnet_v1_50_2016_08_28.tar.gz",
   "weight_decay": 1e-3,
+  "learning_rate": 1e-3,
   "n_feature_maps_per_class": 5,
+  "save_summaries_secs": 5,
   "k": 1,
-  "batch_size": 32,
+  "batch_size": 2,
   "n_epochs_for_train": 5,
-  "alpha": 0.0
+  "n_examples_for_train": 10,
+  "log_every": 2,
+  "alpha": 0.0,
+  "master": ""
 }
