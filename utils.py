@@ -6,9 +6,6 @@ import logging.config
 import tensorflow as tf
 
 
-logging.config.fileConfig('log.properties')
-
-
 def load_config(path=None):
     path = 'config.json' if path is None else path
     with open(path, 'r') as f:
@@ -23,6 +20,27 @@ def load_module(name):
 def get_logger(name):
     log = logging.getLogger(name)
     return log
+
+
+DEFAULT_LOGGER = None
+
+
+def get_default_logger():
+    global DEFAULT_LOGGER
+    if DEFAULT_LOGGER is None:
+        DEFAULT_LOGGER = logging.getLogger('ALL')
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter(fmt='%(asctime)s %(name)s %(levelname)s %(message)s'))
+
+        DEFAULT_LOGGER.setLevel(logging.DEBUG)
+        DEFAULT_LOGGER.addHandler(handler)
+    return DEFAULT_LOGGER
+
+
+def delete_if_exists(path):
+    if tf.gfile.Exists(path):
+        tf.gfile.DeleteRecursively(path)
 
 
 def class_wise_pooling(x, m, scope='class_pool'):
