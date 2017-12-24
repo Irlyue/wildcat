@@ -1,3 +1,4 @@
+import os
 import time
 import json
 import tarfile
@@ -95,7 +96,7 @@ def spatial_pooling(x, k, alpha=None, scope='spatial_pool'):
 
 
 def extract_to(src, dst):
-    with tarfile.open(src) as f:
+    with tarfile.open(os.path.expanduser(src)) as f:
         f.extractall(dst)
 
 
