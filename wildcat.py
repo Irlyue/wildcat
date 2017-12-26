@@ -36,17 +36,7 @@ class WildCat:
     def get_default_session(self):
         return self.sess
 
-    def train_from_scratch(self, config):
-        logger.info('Training from scratch....')
-        logger.info(self)
-        logger.info('config=\n' + json.dumps(config, indent=2))
-        n_steps_per_epoch = int(np.ceil(config['n_examples_for_train'] // config['batch_size']))
-        n_steps_for_train = config['n_epochs_for_train'] * n_steps_per_epoch
-
-        # since we're training from scratch,
-        # so always remove the existing directory first.
-        utils.delete_if_exists(config['train_dir'])
-
+    def _build_train_op(self):
         # pre-set summary
         summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
 
@@ -76,16 +66,47 @@ class WildCat:
         summaries.add(tf.summary.scalar('accuracy', accuracy))
 
         summary_op = tf.summary.merge(list(summaries), name='summary_op')
+        return train_op, summary_op
+
+    def train_from_scratch(self, config):
+        logger.info('Training from scratch....')
+        logger.info(self)
+        logger.info('config=\n' + json.dumps(config, indent=2))
+        n_steps_per_epoch = int(np.ceil(config['n_examples_for_train'] // config['batch_size']))
+        n_steps_for_train = config['n_epochs_for_train'] * n_steps_per_epoch
+
+        # since we're training from scratch,
+        # so always remove the existing directory first.
+        utils.delete_if_exists(config['train_dir'])
 
         if not os.path.exists(config['ckpt_path']):
             logger.info('Checkpoint file not exists yet, extracting from %s...' % config['ckpt_tar_path'])
             utils.extract_to(config['ckpt_tar_path'], tempfile.gettempdir())
 
+        train_op, summary_op = self._build_train_op()
         last_loss = slim.learning.train(train_op,
                                         logdir=config['train_dir'],
                                         master=config['master'],
                                         summary_op=summary_op,
                                         init_fn=self._get_init_fn(config),
+                                        log_every_n_steps=config['log_every'],
+                                        save_summaries_secs=config['save_summaries_secs'],
+                                        number_of_steps=n_steps_for_train)
+        logger.info('Last loss: %3f' % last_loss)
+
+    def train_from_last_run(self, config):
+        logger.info('Training from last run...')
+
+        if not tf.train.latest_checkpoint(config['train_dir']):
+            logger.warning('No checkpoint file found in %s' % config['train_dir'])
+
+        n_steps_per_epoch = int(np.ceil(config['n_examples_for_train'] // config['batch_size']))
+        n_steps_for_train = config['n_epochs_for_train'] * n_steps_per_epoch
+        train_op, summary_op = self._build_train_op()
+        last_loss = slim.learning.train(train_op,
+                                        logdir=config['train_dir'],
+                                        master=config['master'],
+                                        summary_op=summary_op,
                                         log_every_n_steps=config['log_every'],
                                         save_summaries_secs=config['save_summaries_secs'],
                                         number_of_steps=n_steps_for_train)
@@ -99,6 +120,8 @@ class WildCat:
             logger.warning('Ignoring --checkpoint_path because a checkpoint already exists in %s' % config['train_dir'])
             return None
 
+        # TODO
+        # need more elegant way to get all the variables to recover
         variables_to_restore = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='resnet')
         return slim.assign_from_checkpoint_fn(config['ckpt_path'],
                                               variables_to_restore,
