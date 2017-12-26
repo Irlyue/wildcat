@@ -120,7 +120,7 @@ class WildCat:
         class_pool = utils.class_wise_pooling(multi_map, self.n_maps_per_class, scope='class_pool')
         spatial_pool = utils.spatial_pooling(class_pool, self.k, alpha=self.alpha, scope='spatial_pool')
         self.logits = spatial_pool
-        self.probs = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.labels, name='probs')
+        self.probs = tf.nn.sigmoid(self.logits, name='probs')
         # record the intermediate nodes
         endpoints['multi_map'] = multi_map
         endpoints['class_pool'] = class_pool
