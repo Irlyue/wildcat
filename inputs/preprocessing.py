@@ -35,6 +35,7 @@ def _mean_image_subtraction(image, means):
 
 
 def default_prep(image, shape=None):
+    image = tf.to_float(image)
     image = _mean_image_subtraction(image, [_R_MEAN, _G_MEAN, _B_MEAN])
     if shape:
         image = tf.image.resize_images(image, size=shape)
