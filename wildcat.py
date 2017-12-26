@@ -16,7 +16,7 @@ logger = utils.get_default_logger()
 
 class WildCat:
     def __init__(self, images, labels=None, n_classes=None, training=False, transfer_conv_size=(3, 3),
-                 n_maps_per_class=5, alpha=1.0, k=1):
+                 n_maps_per_class=5, alpha=1.0, k=1, reg=None):
         self.images = images
         self.labels = labels
         self.n_classes = n_classes
@@ -25,6 +25,7 @@ class WildCat:
         self.n_maps_per_class = n_maps_per_class
         self.alpha = alpha
         self.k = k
+        self.reg = reg
         # store a snap version of __dict__ for string representation
         self.params = self.__dict__.copy()
         self.build_graph()
@@ -53,7 +54,10 @@ class WildCat:
         global_step = tf.train.get_or_create_global_step()
         solver = tf.train.AdamOptimizer(config['learning_rate'])
         data_loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=self.labels, logits=self.logits)
-        reg_loss = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES), name='reg_loss')
+        if self.reg:
+            reg_loss = self.reg * tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES), name='reg_loss')
+        else:
+            reg_loss = 0.0
         total_loss = tf.add(data_loss, reg_loss, name='total_loss')
         train_op = slim.learning.create_train_op(total_loss,
                                                  solver,
@@ -62,20 +66,30 @@ class WildCat:
         summaries.add(tf.summary.scalar('loss/data_loss', data_loss))
         summaries.add(tf.summary.scalar('loss/total_loss', total_loss))
 
+        with tf.name_scope('accuracy'):
+            zeros_const = tf.constant(0, dtype=tf.int32, shape=(config['batch_size'], self.n_classes))
+            ones_const = tf.constant(1, dtype=tf.int32, shape=(config['batch_size'], self.n_classes))
+            output = tf.where(self.logits < 0, zeros_const, ones_const)
+            correct = tf.cast(tf.equal(tf.cast(self.labels, dtype=tf.int32), output), dtype=tf.float32)
+            accuracy = tf.reduce_mean(correct, name='accuracy')
+            accuracy = tf.Print(accuracy, data=[self.logits, tf.reduce_sum(correct)], message='logits')
+        summaries.add(tf.summary.scalar('accuracy', accuracy))
+
         summary_op = tf.summary.merge(list(summaries), name='summary_op')
 
         if not os.path.exists(config['ckpt_path']):
             logger.info('Checkpoint file not exists yet, extracting from %s...' % config['ckpt_tar_path'])
             utils.extract_to(config['ckpt_tar_path'], tempfile.gettempdir())
 
-        slim.learning.train(train_op,
-                            logdir=config['train_dir'],
-                            master=config['master'],
-                            summary_op=summary_op,
-                            init_fn=self._get_init_fn(config),
-                            log_every_n_steps=config['log_every'],
-                            save_summaries_secs=config['save_summaries_secs'],
-                            number_of_steps=n_steps_for_train)
+        last_loss = slim.learning.train(train_op,
+                                        logdir=config['train_dir'],
+                                        master=config['master'],
+                                        summary_op=summary_op,
+                                        init_fn=self._get_init_fn(config),
+                                        log_every_n_steps=config['log_every'],
+                                        save_summaries_secs=config['save_summaries_secs'],
+                                        number_of_steps=n_steps_for_train)
+        logger.info('Last loss: %3f' % last_loss)
 
     def _get_init_fn(self, config):
         if config['ckpt_path'] is None:
@@ -129,8 +143,12 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
     with tf.Graph().as_default() as g:
         n_classes = 10
-        x = tf.constant(np.random.rand(10, 64, 64, 3), dtype=tf.float32)
-        y = tf.constant(np.random.randint(2, size=(10, n_classes)), dtype=tf.float32)
-        images, labels = tf.train.batch([x, y], batch_size=config['batch_size'], enqueue_many=True)
-        model = WildCat(images, labels, n_classes=n_classes)
+        np.random.seed(0)
+        xx = np.random.rand(10, 64, 64, 3)
+        yy = np.random.randint(2, size=(10, n_classes))
+        x = tf.constant(xx, dtype=tf.float32)
+        y = tf.constant(yy, dtype=tf.float32)
+        logger.info('yy: %s' % yy)
+        # images, labels = tf.train.batch([x, y], batch_size=config['batch_size'], enqueue_many=True)
+        model = WildCat(x, y, n_classes=n_classes)
         model.train_from_scratch(config)
